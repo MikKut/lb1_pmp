@@ -48,12 +48,18 @@ class _NewStudentState extends State<NewStudent> {
         _gradeController.text.isEmpty ||
         _selectedGender == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please fill out all fields.')),
+        SnackBar(content: Text('Будь ласка, заповніть всі поля.')),
       );
       return;
     }
 
-    final newStudent = Student(
+    final updatedStudent = widget.student?.copyWith(
+      firstName: _firstNameController.text,
+      lastName: _lastNameController.text,
+      department: _selectedDepartment!,
+      grade: int.tryParse(_gradeController.text) ?? 0,
+      gender: _selectedGender!,
+    ) ?? Student(
       firstName: _firstNameController.text,
       lastName: _lastNameController.text,
       department: _selectedDepartment!,
@@ -61,65 +67,108 @@ class _NewStudentState extends State<NewStudent> {
       gender: _selectedGender!,
     );
 
-    widget.onSave(newStudent);
+    widget.onSave(updatedStudent);
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _firstNameController,
-            decoration: InputDecoration(labelText: 'First Name'),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.student == null ? 'Add Student' : 'Edit Student'),
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Form(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _firstNameController,
+                  decoration: InputDecoration(labelText: 'First Name'),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Будь ласка, введіть ім\'я';
+                    }
+                    return null;
+                  },
+                ),
+                TextFormField(
+                  controller: _lastNameController,
+                  decoration: InputDecoration(labelText: 'Last Name'),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Будь ласка, введіть прізвище';
+                    }
+                    return null;
+                  },
+                ),
+                DropdownButtonFormField<Department>(
+                  value: _selectedDepartment,
+                  items: Department.values.map((department) {
+                    return DropdownMenuItem(
+                      value: department,
+                      child: Text(department.name),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedDepartment = value;
+                    });
+                  },
+                  decoration: InputDecoration(labelText: 'Department'),
+                  validator: (value) {
+                    if (value == null) {
+                      return 'Будь ласка, оберіть кафедру';
+                    }
+                    return null;
+                  },
+                ),
+                DropdownButtonFormField<Gender>(
+                  value: _selectedGender,
+                  items: Gender.values.map((gender) {
+                    return DropdownMenuItem(
+                      value: gender,
+                      child: Text(gender.name),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedGender = value;
+                    });
+                  },
+                  decoration: InputDecoration(labelText: 'Gender'),
+                  validator: (value) {
+                    if (value == null) {
+                      return 'Будь ласка, оберіть стать';
+                    }
+                    return null;
+                  },
+                ),
+                TextFormField(
+                  controller: _gradeController, // Grade controller
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(labelText: 'Grade'),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Будь ласка, введіть курс';
+                    }
+                    if (int.tryParse(value) == null) {
+                      return 'Будь ласка, введіть числове значення';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _saveStudent,
+                  child: Text('Save'),
+                ),
+              ],
+            ),
           ),
-          TextField(
-            controller: _lastNameController,
-            decoration: InputDecoration(labelText: 'Last Name'),
-          ),
-          DropdownButtonFormField<Department>(
-            value: _selectedDepartment,
-            items: Department.values.map((department) {
-              return DropdownMenuItem(
-                value: department,
-                child: Text(department.name),
-              );
-            }).toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedDepartment = value;
-              });
-            },
-            decoration: InputDecoration(labelText: 'Department'),
-          ),
-          DropdownButtonFormField<Gender>(
-            value: _selectedGender,
-            items: Gender.values.map((gender) {
-              return DropdownMenuItem(
-                value: gender,
-                child: Text(gender.name),
-              );
-            }).toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedGender = value;
-              });
-            },
-            decoration: InputDecoration(labelText: 'Gender'),
-          ),
-          TextField(
-            controller: _gradeController, // Grade controller
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(labelText: 'Grade'),
-          ),
-          SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _saveStudent,
-            child: Text('Save'),
-          ),
-        ],
+        ),
       ),
     );
   }

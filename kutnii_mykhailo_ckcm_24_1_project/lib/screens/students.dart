@@ -5,15 +5,19 @@ import '../widgets/NewStudent.dart';
 
 class StudentsScreen extends StatelessWidget {
   final List<Student> students;
-  final Function(Student, {int? index}) addOrUpdateStudent;
-  final Function(int) deleteStudent;
-  final Function(Student, int) undoDeleteStudent;
+  final bool isLoading;
+  final Future<void> Function(Student student, {int? index}) addOrUpdateStudent;
+  final void Function(int index) removeStudentLocal;
+  final void Function(Student student, int index) addStudentLocal;
+  final Future<void> Function(String studentId) deleteStudentFromServer;
 
   StudentsScreen({
     required this.students,
+    required this.isLoading,
     required this.addOrUpdateStudent,
-    required this.deleteStudent,
-    required this.undoDeleteStudent,
+    required this.removeStudentLocal,
+    required this.addStudentLocal,
+    required this.deleteStudentFromServer,
   });
 
   void _openNewStudentModal(BuildContext context, {Student? student, int? index}) {
@@ -27,9 +31,9 @@ class StudentsScreen extends StatelessWidget {
           ),
           child: NewStudent(
             student: student,
-            onSave: (updatedStudent) {
-              addOrUpdateStudent(updatedStudent, index: index);
-              Navigator.of(context).pop(); // Close the modal after saving
+            onSave: (updatedStudent) async {
+              await addOrUpdateStudent(updatedStudent, index: index);
+              Navigator.of(context).pop();
             },
           ),
         );
@@ -39,36 +43,61 @@ class StudentsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Перевірка наявності id у всіх студентів
+    for (var student in students) {
+      assert(student.id != null, 'Студент ${student.firstName} ${student.lastName} не має ID');
+    }
+
+    if (isLoading) {
+      return Center(child: CircularProgressIndicator());
+    }
+
+    if (students.isEmpty) {
+      return Scaffold(
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => _openNewStudentModal(context),
+          child: Icon(Icons.add),
+        ),
+        body: Center(
+          child: Text(
+            'No students added yet!',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openNewStudentModal(context),
         child: Icon(Icons.add),
       ),
-      body: students.isEmpty
-          ? Center(
-        child: Text(
-          'No students added yet!',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-      )
-          : ListView.builder(
+      body: ListView.builder(
         itemCount: students.length,
         itemBuilder: (ctx, index) {
+          final student = students[index];
           return Dismissible(
-            key: ValueKey(students[index]),
+            key: ValueKey(student.id!),
             direction: DismissDirection.endToStart,
             onDismissed: (_) {
               final removedStudent = students[index];
-              deleteStudent(index);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${removedStudent.firstName} removed'),
-                  action: SnackBarAction(
-                    label: 'UNDO',
-                    onPressed: () => undoDeleteStudent(removedStudent, index),
-                  ),
+              removeStudentLocal(index);
+
+              final snackBar = SnackBar(
+                content: Text('${removedStudent.firstName} видалено'),
+                action: SnackBarAction(
+                  label: 'UNDO',
+                  onPressed: () {
+                    addStudentLocal(removedStudent, index);
+                  },
                 ),
               );
+
+              ScaffoldMessenger.of(context).showSnackBar(snackBar).closed.then((reason) {
+                if (reason != SnackBarClosedReason.action) {
+                  deleteStudentFromServer(removedStudent.id!);
+                }
+              });
             },
             background: Container(
               color: Colors.red,
